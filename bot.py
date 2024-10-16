@@ -60,33 +60,71 @@ async def refresh(ctx):
     except:
         await ctx.send("uhhhh smth went wrong lol")
 
-#gives random map to command user
+#gives random map to user
 @bot.command(
-    pass_context = True,
-    help = "Gives random map. Can specify easy/medium/hard (optional)",
-    cooldown_after_parsing = True
+        help = "Gives random map. Takes optional parameters for difficulty, forger name, and map type.\n\nDifficulty: any combination of easy/medium/hard. Defaults to any difficulty.\n\nForger name: forger's name as it is spelled in the verified maps sheet (case sensitive). For forgers with names with spaces in them, surround the name in quotation marks (eg. \"find pain\"). Defaults to any forger.\n\nMap type: jump/mongoose/all. Defaults to jump maps.",
+        cooldown_after_parsing = True
 )
 @commands.cooldown(1, 30, commands.BucketType.user)
-async def map(ctx, difficulty = ""):
+async def map(ctx, *args):
+
     with open("reach_maps.json", "r") as f:
-        map_list = json.load(f)
-    if difficulty == "":
-        random_map = random.randint(0,(len(map_list)-1))
-        chosen = map_list[random_map]
-        await ctx.send(f"**{chosen[1]}** by **{chosen[0]}** ({chosen[2]})")
+        map_list= json.load(f)
+    difficulty_list = ["easy", "medium", "hard"]
+    forger_list = []
+    for i in map_list:
+        if i[0] not in forger_list:
+            forger_list.append(i[0])
+    map_type_list = ["all", "mongoose", "jump"]
+
+    select_difficulty = set(args).intersection(difficulty_list)
+    select_forger = set(args).intersection(forger_list)
+    select_map_type = set(args).intersection(map_type_list)
+
+    difficulty_maps = []
+    forger_maps = []
+    type_maps = []
+
+    if select_difficulty == set():
+        difficulty_maps = map_list
     else:
-        shortlist = []
-        diff_upper = difficulty.upper()
-        diff_options = ["EASY", "MEDIUM", "HARD"]
-        if diff_upper in diff_options:
-            for i in map_list:
-                if i[2] == diff_upper:
-                    shortlist.append(i)
-            random_map = random.randint(0,(len(shortlist)-1))
-            chosen = shortlist[random_map]
-            await ctx.send(f"**{chosen[1]}** by **{chosen[0]}** ({chosen[2]})")
-        else:
-            await ctx.send("Invalid argument. Use !map without arguments or specify !map [easy/medium/hard]")
-            map.reset_cooldown(ctx)
+        for i in select_difficulty:
+            for j in map_list:
+                if i.upper() == j[2] and j not in difficulty_maps:
+                    difficulty_maps.append(j)
+
+    if select_forger == set():
+        forger_maps = map_list
+    else:
+        for i in select_forger:
+            for j in map_list:
+                if i.upper() in j[0].upper() and j not in forger_maps:
+                    forger_maps.append(j)
+
+    if select_map_type == set():
+        for i in map_list:
+            if "mongoose" not in i[8]:
+                type_maps.append(i)
+    else:
+        for i in select_map_type:
+            for j in map_list:
+                if i == "all" and j not in type_maps:
+                    type_maps.append(j)
+                elif i == "jump" and j not in type_maps:
+                    if "mongoose" not in j[8]:
+                        type_maps.append(j)
+                elif i == "mongoose":
+                    if "mongoose" in j[8] and j not in type_maps:
+                        type_maps.append(j)
+
+    #intersection of map queries
+    query_list = set(tuple(x) for x in difficulty_maps).intersection(set(tuple(x) for x in forger_maps),set(tuple(x)for x in type_maps))
+    if query_list == set():
+        await ctx.send("No maps found :(\nPlease try again with different arguments.")
+        map.reset_cooldown(ctx)
+    else:
+        random_map = random.randint(0, len(query_list) - 1)
+        chosen = list(query_list)[random_map]
+        await ctx.send(f"**{chosen[1]}** by **{chosen[0]}** ({chosen[2]})")
 
 bot.run(TOKEN)
