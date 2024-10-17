@@ -60,47 +60,57 @@ async def refresh(ctx):
     except:
         await ctx.send("uhhhh smth went wrong lol")
 
-#gives random map to user
+#gives random map to user from list depending on specifications
 @bot.command(
         help = "Gives random map. Takes optional parameters for difficulty, forger name, and map type.\n\nDifficulty: any combination of easy/medium/hard. Defaults to any difficulty.\n\nForger name: forger's name as it is spelled in the verified maps sheet (case sensitive). For forgers with names with spaces in them, surround the name in quotation marks (eg. \"find pain\"). Defaults to any forger.\n\nMap type: jump/mongoose/all. Defaults to jump maps.",
         cooldown_after_parsing = True
 )
 @commands.cooldown(1, 30, commands.BucketType.user)
 async def map(ctx, *args):
-
+    #args: difficulty (easy, medium, hard), forger (case sensitive), type (jump, mongoose, all)
+    #read reach_maps.json and store as list
+    args_case = list(x.casefold() for x in args)
     with open("reach_maps.json", "r") as f:
         map_list= json.load(f)
+
+    #create all possible accepted options for each search filter
     difficulty_list = ["easy", "medium", "hard"]
     forger_list = []
     for i in map_list:
         if i[0] not in forger_list:
-            forger_list.append(i[0])
+            forger_list.append(i[0].casefold())
     map_type_list = ["all", "mongoose", "jump"]
 
-    select_difficulty = set(args).intersection(difficulty_list)
-    select_forger = set(args).intersection(forger_list)
-    select_map_type = set(args).intersection(map_type_list)
+    #establish what search filter parameters were given by user
+    select_difficulty = set(args_case).intersection(difficulty_list)
+    select_forger = set(args_case).intersection(forger_list)
+    select_map_type = set(args_case).intersection(map_type_list)
 
+    #create lists for each search parameter
     difficulty_maps = []
     forger_maps = []
     type_maps = []
 
+    #handling search filter options for difficulty
     if select_difficulty == set():
         difficulty_maps = map_list
     else:
         for i in select_difficulty:
             for j in map_list:
-                if i.upper() == j[2] and j not in difficulty_maps:
+                if i == j[2].casefold() and j not in difficulty_maps:
                     difficulty_maps.append(j)
 
+    #handling search filter options for forger
     if select_forger == set():
         forger_maps = map_list
     else:
         for i in select_forger:
             for j in map_list:
-                if i.upper() in j[0].upper() and j not in forger_maps:
+                if i in j[0].casefold() and j not in forger_maps:
                     forger_maps.append(j)
 
+    #handling search filter options for map type
+    #default behaviour is to ignore mongoose maps
     if select_map_type == set():
         for i in map_list:
             if "mongoose" not in i[8]:
@@ -120,9 +130,11 @@ async def map(ctx, *args):
     #intersection of map queries
     query_list = set(tuple(x) for x in difficulty_maps).intersection(set(tuple(x) for x in forger_maps),set(tuple(x)for x in type_maps))
     if query_list == set():
+        #if search is too exclusive and no maps fit all criteria
         await ctx.send("No maps found :(\nPlease try again with different arguments.")
         map.reset_cooldown(ctx)
     else:
+        #choose random map out of queried options
         random_map = random.randint(0, len(query_list) - 1)
         chosen = list(query_list)[random_map]
         await ctx.send(f"**{chosen[1]}** by **{chosen[0]}** ({chosen[2]})")
