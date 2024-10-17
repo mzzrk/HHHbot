@@ -43,7 +43,7 @@ def make_reach(original):
     reach_maps = []
     for i in original:
     # print(i)
-        if i[3] == "REACH":
+        if i[3] == "REACH" and "*" not in i[8]:
             reach_maps.append(i)
     return reach_maps
 
